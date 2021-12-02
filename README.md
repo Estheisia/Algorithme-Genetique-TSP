@@ -24,4 +24,4 @@ Il y a un certain nombre de PARAMETRES :
 - MODE_DE_GENERATION : Si BERLIN52 = false, 1 = aléatoire, 2 = génération des villes en forme de cercle.
 
 Un exemple d'affichage :
-![alt text](https://github.com/Estheisia/Algorithme-Genetique-TSP/exemple_affichage.PNG)
+![alt text](https://github.com/Estheisia/Algorithme-Genetique-TSP/blob/main/exemple_affichage.PNG)
