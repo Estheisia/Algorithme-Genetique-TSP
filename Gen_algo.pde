@@ -1,18 +1,18 @@
 //--------------------Déclaration des paramètres de la simulation--------------------
 //Défini le nombre de boucles à faire, où une boucle est la génération des villes, de la population et son évolution suivant son aptitude
-int NOMBRE_RUN = 7;
+int NOMBRE_DE_BOUCLES = 7;
 //Défini le nombre de villes
 int NOMBRE_DE_VILLES = 52;
 //Défini la taille de la population, le nombre de solution "à évaluer" par génération
-int TAILLE_DE_LA_POP = 80;
+int NOMBRE_D_INDIVIDUS = 50;
 //Défini la probabilité qu'une mutation survienne, comprendre une modification de l'individu, effectuée lors de la création d'une nouvelle génération
 float TAUX_DE_MUTATION = 0.001;
 //Défini le nombre maximum de générations, condition de fin de boucle
-int NOMBRE_GEN_MAX = 300;
+int MAXIMUM_NOMBRE_GENERATION = 300;
 //Défini le nombre maximum de générations successives ayant la même valeur d'aptitude, condiiton de fin de boucle
-int MAX_MEME_APTITUDE = 3000;
+int MAXIMUM_D_APTITUDE_IDENTIQUE = 3000;
 //Défini l'aléatoire pour la réplicabilité
-int GRAINE = 3;
+int GRAINE_ALEATOIRE = 3;
 //Défini si on utilise l'élitisme qui est de conserver NOMBRE_ELITISME d'individus dans la génération suivante, sans aucun croisement ni aucune mutation
 boolean UTILISATION_ELITISME = false;
 //Défini le nombre d'individus concerné par l'élitisme, choisis comme les N meilleurs individus d'une génération
@@ -21,9 +21,9 @@ int NOMBRE_ELITISME = 2;
 //Défini le nombre de meilleurs individus d'une génération à choisir pour croiser dans la N+1 génération, dans le MODE_CROISEMENT = 1
 int NOMBRE_DE_MEILLEURS_PARENTS = 5;
 /*
- * En 300 NOMBRE_GEN_MAX : MODE_MUTATION - MODE_CROISEMENT : Résultat sur berlin52.json (~7k meilleur)
- * 1 - 1 : Nul à chier (16k) // 1 - 2 : Bof (13k) // 1 - 3 : Bof (12-13k) // 1 - 4 : OK (11k)
- * 2 - 1 : Rien (21k) // 2 - 2 : Bien (9k) // 2 - 3 : Cassé (25k) // 2 - 4 : Bon (8k) (9k)
+ * En 300 MAXIMUM_NOMBRE_GENERATION 80 NOMBRE_D_INDIVIDUS : MODE_MUTATION - MODE_CROISEMENT : Résultat sur berlin52.json (~7540 meilleur)
+ * 1 - 1 : Nul à chier (16k) // 1 - 2 : Bof (13k) // 1 - 3 : Bof (13k) // 1 - 4 : OK (10k)
+ * 2 - 1 : Rien (21k) // 2 - 2 : Bien (9k) // 2 - 3 : Cassé (25k) // 2 - 4 : OK (10k) (meilleur avec l'ancienne version de 4 -> double croisement)
  */
 //Défini le type de mutation à effectuer : 1 -> Mutation aléatoire, comprendre échanger la valeur de deux emplacements de la solution d'un individu
 //                                         2 -> Demi-mutation, comprendre couper un individu en deux, le début devient la fin et inversement
@@ -34,7 +34,7 @@ int MODE_MUTATION = 2;
 //                                           4 -> CrossOver en gardant l'ordre au maximum
 int MODE_CROISEMENT = 4;
 //Défini si le croisement utilisé sera simple (true), un seul point, ou double (false), deux points
-boolean CROISEMENT_SIMPLE = false;
+boolean CROISEMENT_SIMPLE = true;
 //Défini le mode de calcul de l'aptitude : 1 -> aptitude = distance entre les villes
 //                                         2 -> aptitude = 1/distance
 //                                         3 -> ...distance standardisée?
@@ -42,10 +42,10 @@ boolean CROISEMENT_SIMPLE = false;
 int MODE_CALCUL_APTITUDE = 1;
 
 //Défini si on utilise le jeu de données berlin52.json pour les villes ou si on génère manuellement, si true NOMBRE_DE_VILLES = 52 automatiquement
-boolean BERLIN52 = true;
+boolean BERLIN52 = false;
 //Défini le type de génération manuelle, si BERLIN52 = false, sinon aucun effet : 1 -> coordonnées aléatoires
 //                                                                                2 -> coordonnées circulaires
-int MODE_DE_GENERATION = 2;
+int MODE_DE_GENERATION = 1;
 
 //--------------------Définition des variables globales--------------------
 //Tableau contenant les listes représentant les individus de la génération actuelle, chaque listes représentent une solution possible : un chromosome
@@ -60,9 +60,9 @@ float plusCourteDistance;
 IntList meilleureSolution;
 //Distance la plus faible de la génération précédente, utilisé pour compter le nombre de génération ayant la même meilleure plusCourteDistance
 float distanceGenPrecedente;
-//Entier servant de compteur pour la condiiton de fin MAX_MEME_APTITUDE
+//Entier servant de compteur pour la condiiton de fin MAXIMUM_D_APTITUDE_IDENTIQUE
 int memeAptitude;
-//Entier servant de compteur pour la condition de fin NOMBRE_GEN_MAX
+//Entier servant de compteur pour la condition de fin MAXIMUM_NOMBRE_GENERATION
 int niemeGen;
 //Liste des valeurs successives de plusCourteDistance pour construire le graphique d'une boucle
 IntList graph;
@@ -100,34 +100,35 @@ void miseAZero() {
   //Chromosome de base pour la génération de la population
   IntList chromosome = new IntList();
   //Dans l'ordre : Population des individus, Villes, Score des individus
-  tableauDesChromosomes = new IntList[TAILLE_DE_LA_POP];
+  tableauDesChromosomes = new IntList[NOMBRE_D_INDIVIDUS];
   tableauDesCoordonnees = new PVector[NOMBRE_DE_VILLES];
-  tableauDesAptitudes = new float[TAILLE_DE_LA_POP];
+  tableauDesAptitudes = new float[NOMBRE_D_INDIVIDUS];
   
   //Fixe l'aléatoire de la génération des villes
-  randomSeed(GRAINE);
+  randomSeed(GRAINE_ALEATOIRE);
   
   //Création d'un vecteur ayant deux valeurs comprises dans la zone prévue de la fenêtre et l'indice de création
-  PVector v = new PVector();
+  PVector vecteurVille = new PVector();
   //Génération manuelle ou d'après un JSON
+  int indice;
   if(!BERLIN52) {
     //Initialisation des villes
-    for(int indice=0; indice<NOMBRE_DE_VILLES; indice++) {
+    for(indice=0; indice<NOMBRE_DE_VILLES; indice++) {
       //Suivant MODE_DE_GENERATION, aléatoire ou circulaire
       switch(MODE_DE_GENERATION) {
         case 1:
-          v.x = floor(random(2*width/3 - 50)+25);
-          v.y = height/2-floor(random(height/2 - 70)+25);
-          v.z = indice;
+          vecteurVille.x = floor(random(2*width/3 - 50)+25);
+          vecteurVille.y = height/2-floor(random(height/2 - 70)+25);
+          vecteurVille.z = indice;
           break;
         case 2:
-          v.x = 2*width/6 + sin(radians(360*NOMBRE_RUN*indice/360)) * 190;
-          v.y = height/4 + cos(radians(360*NOMBRE_RUN*indice/360)) * 190;
-          v.z = indice;
+          vecteurVille.x = 2*width/6 + sin(radians(360*NOMBRE_DE_BOUCLES*indice/360)) * 190;
+          vecteurVille.y = height/4 + cos(radians(360*NOMBRE_DE_BOUCLES*indice/360)) * 190;
+          vecteurVille.z = indice;
           break;
      }
      //Affectation du vecteur dans le tableau des coordonnées des villes
-     tableauDesCoordonnees[indice] = v.copy();
+     tableauDesCoordonnees[indice] = vecteurVille.copy();
      //Ajout de l'indice de la ville dans le chromosone de génération
      chromosome.append(indice);
     }
@@ -136,9 +137,9 @@ void miseAZero() {
     //Nécessaire car nombreux parcours suivant cette valeur -> modif ?
     NOMBRE_DE_VILLES = 52;
     //Parcours du JSON
-    for(int h=0; h<json.size();h++) {
+    for(indice=0; indice<json.size();indice++) {
       //Récupération des object contenu dans le JSON
-      JSONObject point = json.getJSONObject(h);
+      JSONObject point = json.getJSONObject(indice);
       //Affectation des valeurs dans le vecteur
       /*
        * Dans le cas où on souhaite afficher proprement dans la fenêtre, la valeur de la distance réduit, pas encore de compensation mathématiques
@@ -146,17 +147,17 @@ void miseAZero() {
        * v.y = 420-point.getInt("Y")/3;
        * v.z = h;
        */
-      v.x = point.getInt("X");
-      v.y = point.getInt("Y");
-      v.z = h;
+      vecteurVille.x = point.getInt("X");
+      vecteurVille.y = point.getInt("Y");
+      vecteurVille.z = indice;
       //Affectation du vecteur dans les variables nécessaires
-      tableauDesCoordonnees[h] = v.copy();
-      chromosome.append(h);
+      tableauDesCoordonnees[indice] = vecteurVille.copy();
+      chromosome.append(indice);
     }
   }
     
   //Initialisation de la population de chromosomes
-  for (int indice=0; indice<TAILLE_DE_LA_POP; indice++) {
+  for (indice=0; indice<NOMBRE_D_INDIVIDUS; indice++) {
     //Mélange aléatoire de la position des valeurs du chromosome
     chromosome.shuffle();
     //Ajout du chromosome dans la population
@@ -172,7 +173,7 @@ void draw() {
  //Réalisation d'une génération
  run();
  //Test de fin de simulation
- if(resultats.size() == NOMBRE_RUN) {
+ if(resultats.size() == NOMBRE_DE_BOUCLES) {
    //Effacement de la fenêtre
    background(0);
    //Retour en haut de l'écran
@@ -180,7 +181,7 @@ void draw() {
    //Tri des résultats par ordre croissant
    resultats.sort();
    //Affichage des résultats successifs
-   for(int t=0; t<NOMBRE_RUN; t++) {
+   for(int t=0; t<NOMBRE_DE_BOUCLES; t++) {
      text(resultats.get(t), 20, 30*t);
    }
    //Ici, fin de programme
@@ -205,24 +206,24 @@ void run() {
    float h = 20;
    int decalageTexte = 25;
    fill(255,255,0);
-   text("Run n° " + resultats.size() + " / " + NOMBRE_RUN,                             w, h);
+   text("Run n° " + resultats.size() + " / " + NOMBRE_DE_BOUCLES,                         w, h);
    fill(200,100,0);
-   text("Nombre de villes : " + NOMBRE_DE_VILLES,                                      w, h + decalageTexte);
-   text("Population : " + TAILLE_DE_LA_POP,                                            w, h + 2*decalageTexte);
-   text("Taux de mutation : " + TAUX_DE_MUTATION,                                      w, h + 3*decalageTexte);
-   text("N meilleurs parents : " + NOMBRE_DE_MEILLEURS_PARENTS,                        w, h + 4*decalageTexte);
-   text("Graine aléatoire : " + GRAINE,                                                w, h + 5*decalageTexte);
-   text("Elitisme ? " + UTILISATION_ELITISME,                                          w, h + 6*decalageTexte);
-   text("Croisement simple ? " + CROISEMENT_SIMPLE,                                    w, h + 7*decalageTexte);
-   text("Mode croisement : " + MODE_CROISEMENT,                                        w, h + 8*decalageTexte);
-   text("Nb choisi élitisme : " + NOMBRE_ELITISME,                                     w, h + 9*decalageTexte);
-   text("Mode mutation : " + MODE_MUTATION,                                            w, h + 10*decalageTexte);
+   text("Nombre de villes : " + NOMBRE_DE_VILLES,                                         w, h + decalageTexte);
+   text("Population : " + NOMBRE_D_INDIVIDUS,                                             w, h + 2*decalageTexte);
+   text("Taux de mutation : " + TAUX_DE_MUTATION,                                         w, h + 3*decalageTexte);
+   text("N meilleurs parents : " + NOMBRE_DE_MEILLEURS_PARENTS,                           w, h + 4*decalageTexte);
+   text("Graine aléatoire : " + GRAINE_ALEATOIRE,                                         w, h + 5*decalageTexte);
+   text("Elitisme ? " + UTILISATION_ELITISME,                                             w, h + 6*decalageTexte);
+   text("Croisement simple ? " + CROISEMENT_SIMPLE,                                       w, h + 7*decalageTexte);
+   text("Mode croisement : " + MODE_CROISEMENT,                                           w, h + 8*decalageTexte);
+   text("Nb choisi élitisme : " + NOMBRE_ELITISME,                                        w, h + 9*decalageTexte);
+   text("Mode mutation : " + MODE_MUTATION,                                               w, h + 10*decalageTexte);
    fill(0,255,0);
-   text("Génération même score : " + memeAptitude + " / " + MAX_MEME_APTITUDE,         w, h + 13*decalageTexte);
+   text("Génération même score : " + memeAptitude + " / " + MAXIMUM_D_APTITUDE_IDENTIQUE, w, h + 13*decalageTexte);
    fill(0,255,255);
-   text("Génération num : " + niemeGen + " / " + NOMBRE_GEN_MAX,                       w, h + 14*decalageTexte);
+   text("Génération num : " + niemeGen + " / " + MAXIMUM_NOMBRE_GENERATION,               w, h + 14*decalageTexte);
    fill(255,255,0);
-   text("Distance : " + calculerLaDistance(tableauDesCoordonnees,meilleureSolution),   w, h + 15*decalageTexte);
+   text("Distance : " + calculerLaDistance(tableauDesCoordonnees,meilleureSolution),      w, h + 15*decalageTexte);
    
    noFill();
    //Afficher la meilleure solution trouvée jusqu'à maintenant
@@ -263,28 +264,28 @@ void run() {
    stroke(255, 255, 0);
    strokeWeight(2);
    for(int i=0; i<graph.size(); i++) {
-     point(55+(792*(i)/(NOMBRE_GEN_MAX)),
+     point(55+(792*(i)/(MAXIMUM_NOMBRE_GENERATION)),
            205-( 200*(graph.get(i)-300) / (graph.max()-300))
            );
    }
    text(graph.max(), 5, 10);
    text("0", 25, 250);
    text("Gen : 0", 5, 270);
-   text(NOMBRE_GEN_MAX, 850, 270);
+   text(MAXIMUM_NOMBRE_GENERATION, 850, 270);
    text("Valeurs de plusCourteDistance suivant la génération", 55, 300);
    
-   //Arrête la recherche si on atteint NOMBRE_GEN_MAX
+   //Arrête la recherche si on atteint MAXIMUM_NOMBRE_GENERATION
    fill(255,0,0);
-   if(niemeGen == NOMBRE_GEN_MAX) {
+   if(niemeGen == MAXIMUM_NOMBRE_GENERATION) {
      text("Nombre maximum de génération atteint.", 250, h - 50);
      resultats.append(plusCourteDistance);
      miseAZero();
    }
-   //Arrête la recherche si l'aptitude reste identique pendant MAX_MEME_APTITUDE
+   //Arrête la recherche si l'aptitude reste identique pendant MAXIMUM_D_APTITUDE_IDENTIQUE
    if(floor(plusCourteDistance) == floor(distanceGenPrecedente)) memeAptitude++;
    else memeAptitude = 0;
    distanceGenPrecedente = plusCourteDistance;
-   if(memeAptitude > MAX_MEME_APTITUDE) {
+   if(memeAptitude > MAXIMUM_D_APTITUDE_IDENTIQUE) {
      text("Nombre maximum de génération sans meilleure aptitude atteint.", 250, h - 50);
      resultats.append(plusCourteDistance);
      miseAZero();
@@ -348,7 +349,7 @@ float calculerLaDistance(PVector[] villes, IntList solution) {
 //--------------------Création de la nouvelle génération--------------------
 void creerNouvelleGeneration() {
   //Création du tableau de la nouvelle génération
-  IntList[] nouvGen = new IntList[TAILLE_DE_LA_POP];
+  IntList[] nouvGen = new IntList[NOMBRE_D_INDIVIDUS];
   //Indice qui sert lorsque l'élitisme est utilisé pour permettre de commencer après les individus conservés
   int indiceDeDepart=0;
   //Si on utilise l'élitisme, les N NOMBRE_ELITISME sont affectés directement
@@ -432,29 +433,32 @@ void croisementDeIAvecUnDesMeilleurs(IntList[] nouvGen, int depart) {
 //Selectionne les 4 meilleurs individus pour les croiser entre eux
 void eugenisme(IntList[] nouvGen) {
   IntList[] tableauDesNMeilleursParents = selectionnerMeilleurParent(4);
-  IntList o = new IntList();
-  IntList p = new IntList();
+  IntList parentA = new IntList();
+  IntList parentB = new IntList();
   for(int i=0; i<tableauDesChromosomes.length; i++) {
     if(random(1) < 0.5) {
-      o=tableauDesNMeilleursParents[0];
-      p=tableauDesNMeilleursParents[3];
+      parentA=tableauDesNMeilleursParents[0];
+      parentB=tableauDesNMeilleursParents[3];
     }
     else {
-      o=tableauDesNMeilleursParents[2];
-      p=tableauDesNMeilleursParents[1];
+      parentA=tableauDesNMeilleursParents[2];
+      parentB=tableauDesNMeilleursParents[1];
     }
-    if(MODE_MUTATION==1) nouvGen[i] = mutation(croisementSimple(o,p));
-    else nouvGen[i] = demiMutation(croisementSimple(o,p));
+    IntList enfant;
+    if(CROISEMENT_SIMPLE) enfant = croisementSimple(parentA, parentB);
+    else enfant = croisementDouble(parentA, parentB);
+    if(MODE_MUTATION==1) nouvGen[i] = mutation(enfant);
+    else nouvGen[i] = demiMutation(enfant);
   }
 }
 
-//Selectionne les 2 meilleurs individus, 50% chacun de devenir un nouvel indivdu pour TAILLE_DE_LA_POP itération, sans croisement
+//Selectionne les 2 meilleurs individus, 50% chacun de devenir un nouvel indivdu pour NOMBRE_D_INDIVIDUS itération, sans croisement
 void clonage(IntList[] nouvGen) {
   IntList[] tableauDesNMeilleursParents = selectionnerMeilleurParent(2);
-  IntList o = new IntList();
+  IntList clone = new IntList();
   for(int i=0; i<tableauDesChromosomes.length; i++) {
     if(random(1) < 0.5) {
-      o=tableauDesNMeilleursParents[0];
+      clone=tableauDesNMeilleursParents[0];
     }/*
     else if(random(1) < 0.5) {
       o=tableauDesNMeilleursParents[3];
@@ -463,22 +467,22 @@ void clonage(IntList[] nouvGen) {
       o=tableauDesNMeilleursParents[2];
     }*/
     else {
-      o=tableauDesNMeilleursParents[1];
+      clone=tableauDesNMeilleursParents[1];
     }
-    if(MODE_MUTATION==1) nouvGen[i] = mutation(o);
-    else nouvGen[i] = demiMutation(o);
+    if(MODE_MUTATION==1) nouvGen[i] = mutation(clone);
+    else nouvGen[i] = demiMutation(clone);
   }
 }
 
-//Place deux points de croisement, e1 et e2, partie e1 -> e2 du parent A et 0 -> e1 + e2 -> fin du parent B, dans l'ordre d'apparition
+//Place deux points de croisement, e1 et e2, partie e1 -> e2 du parent A et e2 -> fin + 0 -> e1 du parent B, dans l'ordre d'apparition
 void orderedCrossOver(IntList[] nouvGen) {
   IntList[] tableauDesNMeilleursParents = selectionnerMeilleurParent(2);
-  IntList a;
+  IntList nouvelIndividu;
   for(int ss=0; ss<tableauDesChromosomes.length; ss++) {
-    a = new IntList();
+    nouvelIndividu = new IntList();
     //IntList b = new IntList();
-    int emplacementAléatoire1 = floor(random(tableauDesNMeilleursParents[0].size()+1));
-    int emplacementAléatoire2 = floor(random(tableauDesNMeilleursParents[0].size()+1));
+    int emplacementAléatoire1 = floor(random(tableauDesNMeilleursParents[0].size()-4))+2;
+    int emplacementAléatoire2 = floor(random(tableauDesNMeilleursParents[0].size()-4))+2;
     int e1, e2;
     if(emplacementAléatoire1 >= emplacementAléatoire2) {
       e1 = emplacementAléatoire2;
@@ -489,26 +493,34 @@ void orderedCrossOver(IntList[] nouvGen) {
       e2 = emplacementAléatoire2;
     }
     IntList temp = new IntList();
-    for(int i=e1;i<e2;i++) {
+    int i;
+    for(i=e1;i<e2;i++) {
       temp.append(tableauDesNMeilleursParents[0].get(i));
     }
-    int compteur=0;
-    for(int i=0;i<tableauDesNMeilleursParents[1].size() && compteur<e1;i++) {
+    for(i=e2;i<tableauDesNMeilleursParents[1].size();i++) {
       if(!temp.hasValue(tableauDesNMeilleursParents[1].get(i))) {
-        a.append(tableauDesNMeilleursParents[1].get(i));
+        temp.append(tableauDesNMeilleursParents[1].get(i));
+      }
+    }
+    int compteur = temp.size();
+    for(i=0;i<tableauDesNMeilleursParents[1].size() && compteur<tableauDesNMeilleursParents[1].size();i++){
+      if(!temp.hasValue(tableauDesNMeilleursParents[1].get(i))) {
+        temp.append(tableauDesNMeilleursParents[1].get(i));
+      }
+    }
+    compteur=0;
+    for(i=0;i<tableauDesNMeilleursParents[1].size() && compteur<e1;i++) {
+      if(!temp.hasValue(tableauDesNMeilleursParents[1].get(i))) {
+        nouvelIndividu.append(tableauDesNMeilleursParents[1].get(i));
         compteur++;
       }
     }
-    for(int i=0;i<temp.size();i++) {
-      a.append(temp.get(i));
+    for(i=0;i<temp.size();i++) {
+      nouvelIndividu.append(temp.get(i));
     }
-    for(int i=0;i<tableauDesNMeilleursParents[1].size();i++) {
-      if(!a.hasValue(tableauDesNMeilleursParents[1].get(i))) {
-        a.append(tableauDesNMeilleursParents[1].get(i));
-      }
-    }//afficher(tableauDesNMeilleursParents);afficher(a);println(e1+" "+e2);delay(555);
-    if(MODE_MUTATION==1) nouvGen[ss] = mutation(a);
-    else nouvGen[ss] = demiMutation(a);
+    //afficher(tableauDesNMeilleursParents);afficher(a);println(e1+" "+e2);delay(555);
+    if(MODE_MUTATION==1) nouvGen[ss] = mutation(nouvelIndividu);
+    else nouvGen[ss] = demiMutation(nouvelIndividu);
   }
 }
 
@@ -666,7 +678,7 @@ void afficher(IntList[] list) {
 //////////////////////////////Calcul de selection/////////////////////////////////////////////////
 //renvoie la proba d'être choisie comme parent
 int calculerProbaParentParRang(int rang){
-  return TAILLE_DE_LA_POP/rang;
+  return NOMBRE_D_INDIVIDUS/rang;
 }
 
 //renvoie
